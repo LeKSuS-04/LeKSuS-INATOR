@@ -6,18 +6,14 @@ using DSharpPlus.Entities;
 
 namespace DSBot {
     class BaseCommands : BaseCommandModule {
-        [Command("Hello")]
-        [Aliases("Hi")]
-        public async Task Hello(CommandContext ctx) {
-            await ctx.TriggerTypingAsync();
-            await ctx.RespondAsync($"Hello, {ctx.Member.DisplayName} :)");
-        }
-
         [Command("ping")]
+        [Description("Used to check bot's ping.")]
         public async Task Ping(CommandContext ctx) {
             await ctx.TriggerTypingAsync();
-            DiscordEmoji emoji = DiscordEmoji.FromName(ctx.Client, ":ping_pong:");
+
             await ctx.RespondAsync($"Pong! Ping is {ctx.Client.Ping}ms");
+
+            var emoji = DiscordEmoji.FromName(ctx.Client, ":ping_pong:");
             await ctx.Message.CreateReactionAsync(emoji);
         }
     }
