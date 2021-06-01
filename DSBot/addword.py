@@ -1,3 +1,5 @@
+### Script used to manualy add words to wordlist
+
 with open('wordlist.txt', 'r') as f:
     words = f.read().split('\n')
 
