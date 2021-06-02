@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -78,7 +79,7 @@ namespace DSBot {
         }
 
         private Task CommandExecuted(CommandsNextExtension sender, CommandExecutionEventArgs e) {
-            e.Context.Client.Logger.LogInformation(BotEventId, $"{e.Context.User.Username} successfully executed \"{e.Command.QualifiedName}\" commmand");
+            e.Context.Client.Logger.LogInformation(BotEventId, $"{e.Context.User.Username} successfully executed \"{e.Command.QualifiedName}\" commmand with {(e.Context.RawArguments.Count > 0 ? $"\"{e.Context.RawArgumentString}\"" : "no")} arguments");
             return Task.CompletedTask;
         }
         private async Task CommandError(CommandsNextExtension sender, CommandErrorEventArgs e) {

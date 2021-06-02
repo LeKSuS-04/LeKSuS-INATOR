@@ -30,6 +30,18 @@ namespace DSBot {
                               .AppendLine(command.Description);
             }
 
+            MessageBuilder.AppendLine();
+
+            foreach (var overload in command.Overloads)
+            {
+                if (overload.Arguments.Count == 0) continue;
+
+                MessageBuilder.AppendLine(Formatter.Bold($"[Overload {overload.Priority + 1}] Arguments:"))
+                              .AppendLine($" - {string.Join("\n - ", overload.Arguments.Select(xarg => $"{xarg.Description} ({Formatter.Italic(xarg.Type.Name)})"))}")
+                              .AppendLine();
+            }
+
+
             return this;
         }
 

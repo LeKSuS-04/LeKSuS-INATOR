@@ -12,7 +12,17 @@ using DSharpPlus.CommandsNext.Attributes;
 namespace DSBot {
     class HangmanGame {
         public const char hidingChar = '_';
-        public const int livesTotal = 6;
+        public static readonly string[] pictures = {
+            "  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n=========",
+            "  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========",
+            "  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========",
+            "  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========", 
+            "  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========",
+            "  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========",
+            "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========",
+            " \n      |\n      |\n      |\n      |\n      |\n=========",
+            " \n \n \n \n \n \n========="
+        };
         public static List<string> wordlist = File.ReadAllText(Directory.GetCurrentDirectory() + "\\wordlist.txt").Split("\r\n").ToList();
         public int livesLeft { get; set; }
         private string secretWord;
@@ -54,21 +64,12 @@ namespace DSBot {
     [Description("Classic hangman game. Try to guess the word!")]
     class HangmanCommands : BaseCommandModule {
         public Random Rng { private get; set; }
-        private Dictionary<DiscordUser, HangmanGame> games = new Dictionary<DiscordUser, HangmanGame>();
-        static string[] hangmanPics = {
-            "  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n=========",
-            "  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========",
-            "  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========",
-            "  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========", 
-            "  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========",
-            "  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========",
-            "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========" 
-        };
+        private Dictionary<ulong, HangmanGame> games = new Dictionary<ulong, HangmanGame>();
         private string GameInfo(HangmanGame game, bool HideWord = true) {
             StringBuilder output = new StringBuilder();
 
-            output.AppendLine(hangmanPics[game.livesLeft])
-                  .AppendLine($"Lives: {game.livesLeft}/{HangmanGame.livesTotal}")
+            output.AppendLine(HangmanGame.pictures[game.livesLeft])
+                  .AppendLine($"Lives: {game.livesLeft}/{HangmanGame.pictures.Length - 1}")
                   .AppendLine($"Word: {(HideWord ? game.word : game.getSecretWord)}")
                   .AppendLine($"Tried letters: {string.Join(", ", game.lettersTried)}");
 
@@ -98,19 +99,20 @@ namespace DSBot {
         [Aliases("newgame", "new-game", "new_game", "start", "restart", "go", "begin")]
         [Description("Starts a new hangman game.")]
         public async Task Play(CommandContext ctx) {
-            if(games.ContainsKey(ctx.User)) {
-                await ctx.TriggerTypingAsync();
-                await ctx.Channel.SendMessageAsync($"@{ctx.Member.Mention ?? ctx.User.Mention}, you have already started the game. If you wanna surrender, type \"hangman surrender\" before starting new game. If you don't remember, what's going on in that game, \"hangman game\" can remind you that");
+            await ctx.TriggerTypingAsync();
+
+            if(games.ContainsKey(ctx.User.Id)) {
+                await ctx.Channel.SendMessageAsync($"@{ctx.Member?.Mention ?? ctx.User.Mention}, you have already started the game. If you wanna surrender, type \"!hangman surrender\" before starting new game. If you don't remember, what's going on in that game, \"!hangman game\" can remind you that");
             } else {
                 var hangmanGame = new HangmanGame();
 
-                hangmanGame.livesLeft = HangmanGame.livesTotal;
+                hangmanGame.livesLeft = HangmanGame.pictures.Length - 1;
                 hangmanGame.lettersTried = new List<char>();
                 hangmanGame.word = HangmanGame.wordlist[Rng.Next(0, HangmanGame.wordlist.Count)];
 
-                games.Add(ctx.User, hangmanGame);
+                games.Add(ctx.User.Id, hangmanGame);
 
-                await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, the game has started!\n{GameInfo(games[ctx.User])}");
+                await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, the game has started!\n{GameInfo(games[ctx.User.Id])}");
             }
         }
 
@@ -118,11 +120,12 @@ namespace DSBot {
         [Aliases("info", "information", "state")]
         [Description("Returns information about current game.")]
         public async Task Info(CommandContext ctx) {
-            if(games.ContainsKey(ctx.User)) {
-                await ctx.Channel.SendMessageAsync(GameInfo(games[ctx.User]));
+            await ctx.TriggerTypingAsync();
+
+            if(games.ContainsKey(ctx.User.Id)) {
+                await ctx.Channel.SendMessageAsync(GameInfo(games[ctx.User.Id]));
             } else {
-                await ctx.TriggerTypingAsync();
-                await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, you don't have any started games. Wanna play? Type \"hangman play\"");
+                await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, you don't have any started games. Wanna play? Type \"!hangman play\"");
             }
         }
 
@@ -130,37 +133,112 @@ namespace DSBot {
         [Aliases("try", "check")]
         [Description("Check if the letter is in the word!")]
         public async Task Guess(CommandContext ctx, [Description("Letter to check")] string letterString) {
-            if(games.ContainsKey(ctx.User)) {
+            await ctx.TriggerTypingAsync();
+
+            if(games.ContainsKey(ctx.User.Id)) {
                 if(letterString.Length > 1) {
-                    await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, you only can try one letter at a time!");
+                    await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, you only can try one letter at a time!");
                 } else {
-                    char letter = letterString[0];
-                    if(games[ctx.User].lettersTried.Contains(letter)) {
-                        await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, you've already tried this letter, see?\n{GameInfo(games[ctx.User])}");
-                    } else {
-                        games[ctx.User].AddLetter(letter);
+                    char letter = letterString.ToLower()[0];
 
-                        if(games[ctx.User].word.Contains(letter)) {
-                            if(games[ctx.User].word.Contains(HangmanGame.hidingChar)) {
-                                await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, yay, this letter is in the word!\n{GameInfo(games[ctx.User])}");
-                            } else {
-                                await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, yay, this letter is in the word!You've guessed the word! You win!!!\n{GameInfo(games[ctx.User])}\nStart new game by typing \"hangman play\"");
-                                games.Remove(ctx.User);
-                            }
+                    if(letter >= 'a' && letter <= 'z') {
+                        if(games[ctx.User.Id].lettersTried.Contains(letter)) {
+                            await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, you've already tried letter \"{letter}\", see?\n{GameInfo(games[ctx.User.Id])}");
                         } else {
-                            games[ctx.User].livesLeft -= 1;
+                            games[ctx.User.Id].AddLetter(letter);
 
-                            if(games[ctx.User].livesLeft > 0) {
-                                await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, nope, this letter is not in the word!\n{GameInfo(games[ctx.User])}");
+                            if(games[ctx.User.Id].word.Contains(letter)) {
+                                if(games[ctx.User.Id].word.Contains(HangmanGame.hidingChar)) {
+                                    await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, yay, letter \"{letter}\" is in the word!\n{GameInfo(games[ctx.User.Id])}");
+                                } else {
+                                    await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, yay, letter \"{letter}\" is in the word!\nYou've guessed the word! You win!!!\n{GameInfo(games[ctx.User.Id])}\nStart new game by typing \"!hangman play\"");
+                                    games.Remove(ctx.User.Id);
+                                }
                             } else {
-                                await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, nope, this letter is not in the word!\nYou have no lives left! You lose...\n{GameInfo(games[ctx.User], false)}\nStart new game by typing \"hangman play\"");
-                                games.Remove(ctx.User);
+                                games[ctx.User.Id].livesLeft -= 1;
+
+                                if(games[ctx.User.Id].livesLeft > 0) {
+                                    await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, nope, letter \"{letter}\" is not in the word!\n{GameInfo(games[ctx.User.Id])}");
+                                } else {
+                                    await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, nope, letter \"{letter}\" is not in the word!\nYou have no lives left! You lose...\n{GameInfo(games[ctx.User.Id], false)}\nStart new game by typing \"!hangman play\"");
+                                    games.Remove(ctx.User.Id);
+                                }
                             }
+                        }
+                    } else { 
+                        await ctx.Channel.SendMessageAsync($"Hey {ctx.Member?.Mention ?? ctx.User.Mention}, \"{letter}\" is not a letter!");
+                    }
+                }
+            } else {
+                await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, you don't have any started games. Wanna play? Type \"!hangman play\"");
+            }
+        }
+
+        [Command("word")]
+        [Aliases("guessword", "guess-word", "guess_word", "tryword", "try-word", "try_word", "fullword", "full-word", "full_word", "answer")]
+        [Description("If you know the word why won't you say it instead of guessig letter-by-letter?")]
+        public async Task Word(CommandContext ctx, [Description("Your guess")] string word) {
+            await ctx.TriggerTypingAsync();
+
+            word = word.Trim().ToLower();
+            if(games.ContainsKey(ctx.User.Id)) {
+                bool hasForeignSymbols = false;
+                char foreignChar = '*';
+                foreach(char letter in word) {
+                    if(letter < 'a' || letter > 'z') {
+                        foreignChar = letter;
+                        hasForeignSymbols = true;
+                        break;
+                    }
+                }
+
+                if(hasForeignSymbols) {
+                    await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, your word has characters that are not letters, for example \"{foreignChar}\"");
+                } else { 
+                    if(word == games[ctx.User.Id].getSecretWord) {
+                        await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, yay, you're right\nYou've guessed the word! You win!!!\n{GameInfo(games[ctx.User.Id], false)}\nStart new game by typing \"!hangman play\"");
+                        games.Remove(ctx.User.Id);
+                    } else {
+                        games[ctx.User.Id].livesLeft -= 1;
+
+                        if(games[ctx.User.Id].livesLeft > 0) {
+                            await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, nope, that's not the word! You lose a life.\n{GameInfo(games[ctx.User.Id])}");
+                        } else {
+                            await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, nope, that's not the word! You lose a life.\nYou have no lives left! You lose...\n{GameInfo(games[ctx.User.Id], false)}\nStart new game by typing \"!hangman play\"");
+                            games.Remove(ctx.User.Id);
                         }
                     }
                 }
             } else {
-                await ctx.Channel.SendMessageAsync($"{ctx.Member.Mention ?? ctx.User.Mention}, you don't have any started games. Wanna play? Type \"hangman play\"");
+                await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, you don't have any started games. Wanna play? Type \"!hangman play\"");
+            }
+        }
+
+        [Command("surrender")]
+        [Aliases("giveup", "give-up", "give_up", "lose", "end")]
+        [Description("Ends the current game (for loosers)")]
+        public async Task Surrender(CommandContext ctx) {
+            await ctx.TriggerTypingAsync();
+
+            if(games.ContainsKey(ctx.User.Id)) {
+                await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, your game was ended.\n{GameInfo(games[ctx.User.Id], false)}");
+                games.Remove(ctx.User.Id);
+
+                var L  = DiscordEmoji.FromName(ctx.Client, ":regional_indicator_l:");
+                var O  = DiscordEmoji.FromName(ctx.Client, ":regional_indicator_o:");
+                var O2 = DiscordEmoji.FromName(ctx.Client, ":o2:");
+                var S  = DiscordEmoji.FromName(ctx.Client, ":regional_indicator_s:");
+                var E  = DiscordEmoji.FromName(ctx.Client, ":regional_indicator_e:");
+                var R  = DiscordEmoji.FromName(ctx.Client, ":regional_indicator_r:");
+
+                await ctx.Message.CreateReactionAsync(L);
+                await ctx.Message.CreateReactionAsync(O);
+                await ctx.Message.CreateReactionAsync(O2);
+                await ctx.Message.CreateReactionAsync(S);
+                await ctx.Message.CreateReactionAsync(E);
+                await ctx.Message.CreateReactionAsync(R);
+            } else {
+                await ctx.Channel.SendMessageAsync($"{ctx.Member?.Mention ?? ctx.User.Mention}, you don't have any started games. How can you surrender?");
             }
         }
     }
