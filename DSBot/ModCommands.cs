@@ -11,9 +11,6 @@ using DSharpPlus.CommandsNext.Entities;
 using DSharpPlus.Entities;
 
 namespace DSBot {
-    [Group("mod")]
-    [Aliases("moderate", "admin", "administrate")]
-    [Description("Commands executable only by mods.")]
     [Hidden]
     [RequireUserPermissions(Permissions.Administrator)]
     partial class ModCommands : BaseCommandModule {
@@ -33,6 +30,28 @@ namespace DSBot {
 
             var fakeContext = commandsNext.CreateFakeContext(member, ctx.Channel, commandString, ctx.Prefix, command, customArgs);
             await commandsNext.ExecuteCommandAsync(fakeContext);
+        }
+
+        [Command("say")]
+        [Description("Sends the message from bot's account into channel")]
+        [Aliases("send", "type")]
+        public async Task Say(CommandContext ctx, [Description("ID of the channel to send message to (or \"this\" to send in this channel)")] string channelId, [RemainingText, Description("Message to send")]string message) {
+            await ctx.Message.DeleteAsync();
+
+            DiscordChannel channel;
+            if(new List<string> { "this", "here" }.Contains(channelId.ToLower())) {
+                channel = ctx.Channel;
+            } else {
+                try {
+                    channel = await ctx.Client.GetChannelAsync(Convert.ToUInt64(channelId));
+                } catch {
+                    await ctx.Channel.SendMessageAsync("Cannot find specified channel.");
+                    return;
+                }
+            }
+            
+            await channel.TriggerTypingAsync();
+            await channel.SendMessageAsync(message);
         }
     }
 }

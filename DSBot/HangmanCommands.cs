@@ -71,7 +71,7 @@ namespace DSBot {
             output.AppendLine(HangmanGame.pictures[game.livesLeft])
                   .AppendLine($"Lives: {game.livesLeft}/{HangmanGame.pictures.Length - 1}")
                   .AppendLine($"Word: {(HideWord ? game.word : game.getSecretWord)}")
-                  .AppendLine($"Tried letters: {string.Join(", ", game.lettersTried)}");
+                  .AppendLine($"Checked letters: {string.Join(", ", game.lettersTried)}");
 
             return Formatter.BlockCode(output.ToString().Replace("\r\n", "\n"));
         } 
